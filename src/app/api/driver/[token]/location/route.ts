@@ -14,6 +14,10 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     return NextResponse.json({ error: "cidade é obrigatória" }, { status: 400 });
   }
 
-  await logLocation(payload.routeId, payload.subjectId, cidade);
+  const logged = await logLocation(payload.routeId, payload.subjectId, cidade);
+  if (!logged) {
+    return NextResponse.json({ error: "essa rota não está com você" }, { status: 403 });
+  }
+
   return NextResponse.json({ ok: true });
 }
