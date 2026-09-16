@@ -9,7 +9,7 @@ function getClient() {
   return createClient(url, key);
 }
 
-// ponytail: base64 JSON upload, simplest path for MVP photo volume.
+// ponytail: base64 JSON to API (not direct signed upload), MVP simplification for low volume.
 // Upgrade path: switch to a signed direct-upload URL if photo size or
 // volume starts straining API route payload limits.
 export async function uploadComprovante(routeId: string, base64Image: string): Promise<string> {
