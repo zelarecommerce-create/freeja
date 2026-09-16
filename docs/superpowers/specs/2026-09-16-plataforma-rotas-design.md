@@ -55,12 +55,14 @@ no-code ou bots de WhatsApp sozinhos não garantem de forma confiável.
 ## Modelo de dados (tabelas principais)
 
 - `drivers` — id, nome, cpf, telefone, chave_pix, rntrc, cidade_base,
-  status (ativo/inativo).
+  tipo_veiculo (`moto` | `carro` | `fiorino` | `van` | `caminhao_vuc` |
+  `caminhao_3_4` | `truck`), capacidade_kg, capacidade_m3, status
+  (ativo/inativo).
 - `clients` — id, nome empresa/seller, telefone, email.
 - `routes` — id, client_id, origem, destino, valor_km, valor_total,
-  status (`aguardando_pagamento` | `disponivel` | `assumida` |
-  `em_transporte` | `concluida` | `cancelada`), driver_id (nulo até
-  assumida), created_at.
+  peso_kg, volume_m3, status (`aguardando_pagamento` | `disponivel` |
+  `assumida` | `em_transporte` | `concluida` | `cancelada`), driver_id
+  (nulo até assumida), created_at.
 - `route_events` — id, route_id, tipo (postada, notificada, assumida,
   localizacao_atualizada, concluida, repasse_liberado), payload
   (cidade/hora/foto conforme tipo), created_at. Serve de trilha de
@@ -74,13 +76,19 @@ no-code ou bots de WhatsApp sozinhos não garantem de forma confiável.
 1. Equipe cadastra rota → status `aguardando_pagamento`. Sistema cria
    cobrança no Asaas pro cliente.
 2. Webhook Asaas confirma pagamento → rota vira `disponivel` → sistema
-   seleciona entregadores elegíveis (por cidade base) e dispara WhatsApp
-   com link individual.
-3. Entregador abre link, vê detalhes, aperta "ASSUMIR".
+   seleciona entregadores elegíveis — cidade base compatível **e**
+   veículo com capacidade_kg/capacidade_m3 igual ou maior que
+   peso_kg/volume_m3 da rota — e dispara WhatsApp com link individual
+   só pra esse grupo. Entregador de moto nunca recebe rota que precisa
+   de fiorino, por exemplo.
+3. Entregador abre link, vê detalhes, aperta "ASSUMIR". O link já
+   identifica o entregador (token único gerado por rota+driver_id no
+   passo 2) — não existe tela de login/senha; o próprio link é a
+   credencial daquele entregador pra aquela rota.
    - Backend roda `UPDATE routes SET status='assumida', driver_id=$1
-     WHERE id=$2 AND status='disponivel'` numa transação. Se afetar 0
-     linhas, a rota já foi pega — tela mostra "rota já assumida por
-     outro entregador".
+     WHERE id=$2 AND status='disponivel'` numa transação, usando o
+     driver_id decodificado do token. Se afetar 0 linhas, a rota já foi
+     pega — tela mostra "rota já assumida por outro entregador".
 4. Entregador pode apertar "Atualizar localização" no mesmo link a cada
    parada — pede permissão de geolocalização do navegador uma única vez
    por clique (não fica rastreando em segundo plano). Grava evento em
