@@ -1,0 +1,157 @@
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
+import { prisma } from "./db";
+import * as whatsapp from "./whatsapp";
+import { notifyEligibleDrivers, releaseRoute } from "./notifyEligibleDrivers";
+
+beforeEach(() => {
+  process.env.TOKEN_SECRET = "test-secret";
+  vi.spyOn(whatsapp, "sendTextMessage").mockResolvedValue();
+});
+
+describe("notifyEligibleDrivers", () => {
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it("notifies only drivers whose vehicle and city fit the route", async () => {
+    // Real, unreset Postgres DB accumulates Driver rows across test-suite runs
+    // (e.g. claimRoute.test.ts leaves São Paulo/VAN drivers behind), which would
+    // inflate the "ATIVO" + city match count below. A unique city per run keeps
+    // this test's exact-count assertions isolated from that leftover data while
+    // still exercising the same capacity+city filtering logic.
+    const city = `São Paulo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const client = await prisma.client.create({
+      data: { nome: "Seller", telefone: "11999999999", email: "seller@example.com" },
+    });
+    const route = await prisma.route.create({
+      data: {
+        clientId: client.id,
+        origem: city,
+        destino: "Campinas",
+        distanciaKm: 100,
+        valorKm: 3,
+        valorTotal: 300,
+        pesoKg: 80,
+        volumeM3: 1,
+        status: "DISPONIVEL",
+      },
+    });
+
+    const fits = await prisma.driver.create({
+      data: {
+        nome: "Motorista Apto",
+        cpf: `cpf-fits-${city}`,
+        telefone: "5511911111111",
+        chavePix: "chave1",
+        rntrc: "RNTRC1",
+        cidadeBase: city,
+        tipoVeiculo: "FIORINO",
+        capacidadeKg: 500,
+        capacidadeM3: 3,
+      },
+    });
+    await prisma.driver.create({
+      data: {
+        nome: "Motorista Moto",
+        cpf: `cpf-moto-${city}`,
+        telefone: "5511922222222",
+        chavePix: "chave2",
+        rntrc: "RNTRC2",
+        cidadeBase: city,
+        tipoVeiculo: "MOTO",
+        capacidadeKg: 20,
+        capacidadeM3: 0.1,
+      },
+    });
+
+    const count = await notifyEligibleDrivers(route.id);
+
+    expect(count).toBe(1);
+    expect(whatsapp.sendTextMessage).toHaveBeenCalledTimes(1);
+    expect(whatsapp.sendTextMessage).toHaveBeenCalledWith(fits.telefone, expect.stringContaining("São Paulo"));
+  });
+});
+
+describe("releaseRoute", () => {
+  it("puts the route back to DISPONIVEL and re-notifies eligible drivers", async () => {
+    const client = await prisma.client.create({
+      data: { nome: "Seller2", telefone: "11999999999", email: "seller2@example.com" },
+    });
+    const driver = await prisma.driver.create({
+      data: {
+        nome: "Motorista Desistente",
+        cpf: `cpf-desistente-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        telefone: "5511955555555",
+        chavePix: "chave3",
+        rntrc: "RNTRC5",
+        cidadeBase: "São Paulo",
+        tipoVeiculo: "VAN",
+        capacidadeKg: 500,
+        capacidadeM3: 5,
+      },
+    });
+    const route = await prisma.route.create({
+      data: {
+        clientId: client.id,
+        driverId: driver.id,
+        origem: "São Paulo",
+        destino: "Osasco",
+        distanciaKm: 20,
+        valorKm: 3,
+        valorTotal: 60,
+        pesoKg: 30,
+        volumeM3: 0.5,
+        status: "ASSUMIDA",
+      },
+    });
+
+    const result = await releaseRoute(route.id, driver.id);
+    expect(result).toEqual({ released: true });
+
+    const updated = await prisma.route.findUnique({ where: { id: route.id } });
+    expect(updated?.status).toBe("DISPONIVEL");
+    expect(updated?.driverId).toBeNull();
+  });
+
+  it("rejects releasing a route assigned to a different driver", async () => {
+    const client = await prisma.client.create({
+      data: { nome: "Seller3", telefone: "11999999999", email: "seller3@example.com" },
+    });
+    // Route.driverId is a real FK to Driver.id, so it must reference an actual
+    // Driver row (a bare string literal would fail with a FK-constraint error).
+    const assignedDriver = await prisma.driver.create({
+      data: {
+        nome: "Motorista Atribuido",
+        cpf: `cpf-atribuido-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        telefone: "5511966666666",
+        chavePix: "chave4",
+        rntrc: "RNTRC6",
+        cidadeBase: "São Paulo",
+        tipoVeiculo: "VAN",
+        capacidadeKg: 500,
+        capacidadeM3: 5,
+      },
+    });
+    const route = await prisma.route.create({
+      data: {
+        clientId: client.id,
+        driverId: assignedDriver.id,
+        origem: "São Paulo",
+        destino: "Osasco",
+        distanciaKm: 20,
+        valorKm: 3,
+        valorTotal: 60,
+        pesoKg: 30,
+        volumeM3: 0.5,
+        status: "ASSUMIDA",
+      },
+    });
+
+    // "driver-y" is never written to the DB (updateMany's WHERE only filters),
+    // so it can stay a plain non-existent id — it just needs to differ from
+    // the route's real assigned driverId.
+    const result = await releaseRoute(route.id, "driver-y");
+    expect(result).toEqual({ released: false, reason: "not_assigned_to_driver" });
+  });
+});
