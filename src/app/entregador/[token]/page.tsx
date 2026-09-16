@@ -3,6 +3,7 @@ import { useState } from "react";
 
 export default function DriverPage({ params }: { params: { token: string } }) {
   const [message, setMessage] = useState("");
+  const [concluindo, setConcluindo] = useState(false);
 
   async function assumir() {
     const res = await fetch(`/api/driver/${params.token}/assume`, { method: "POST" });
@@ -11,6 +12,7 @@ export default function DriverPage({ params }: { params: { token: string } }) {
   }
 
   async function desistir() {
+    if (!window.confirm("Tem certeza que quer DESISTIR desta rota? Ela será oferecida a outro entregador.")) return;
     const res = await fetch(`/api/driver/${params.token}/release`, { method: "POST" });
     const data = await res.json();
     setMessage(res.ok ? "Você desistiu da rota." : data.error);
@@ -28,6 +30,9 @@ export default function DriverPage({ params }: { params: { token: string } }) {
   }
 
   async function concluir() {
+    if (concluindo) return;
+    if (!window.confirm("Confirmar a ENTREGA desta rota? O pagamento será enviado e isso não pode ser desfeito.")) return;
+
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -36,12 +41,17 @@ export default function DriverPage({ params }: { params: { token: string } }) {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = async () => {
-        const res = await fetch(`/api/driver/${params.token}/complete`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comprovanteBase64: reader.result }),
-        });
-        setMessage(res.ok ? "Entrega concluída!" : (await res.json()).error);
+        setConcluindo(true);
+        try {
+          const res = await fetch(`/api/driver/${params.token}/complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comprovanteBase64: reader.result }),
+          });
+          setMessage(res.ok ? "Entrega concluída!" : (await res.json()).error);
+        } finally {
+          setConcluindo(false);
+        }
       };
       reader.readAsDataURL(file);
     };
@@ -60,8 +70,8 @@ export default function DriverPage({ params }: { params: { token: string } }) {
       <button onClick={atualizarLocalizacao} style={{ fontSize: 24, padding: 16, margin: 8 }}>
         Atualizar localização
       </button>
-      <button onClick={concluir} style={{ fontSize: 24, padding: 16, margin: 8 }}>
-        CONCLUÍDO
+      <button onClick={concluir} disabled={concluindo} style={{ fontSize: 24, padding: 16, margin: 8 }}>
+        {concluindo ? "ENVIANDO..." : "CONCLUÍDO"}
       </button>
       {message && <p>{message}</p>}
     </main>

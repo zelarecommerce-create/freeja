@@ -21,9 +21,12 @@ export async function getRouteTracking(routeId: string): Promise<RouteTracking> 
     ? (lastLocation.payload as { cidade?: string } | null)?.cidade ?? null
     : null;
 
+  // Anchored to when the route was actually assumed — using "now" as the base
+  // would restart the countdown on every request, so the ETA never converged.
+  const assumida = eventos.find((e) => e.tipo === "assumida");
   const etaEstimado =
     route.status === "ASSUMIDA" || route.status === "EM_TRANSPORTE"
-      ? calcularHorarioChegada(route.distanciaKm).toISOString()
+      ? calcularHorarioChegada(route.distanciaKm, assumida?.createdAt).toISOString()
       : null;
 
   return {

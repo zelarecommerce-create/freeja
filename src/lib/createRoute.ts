@@ -1,6 +1,11 @@
 import { prisma } from "./db";
 import { createCharge } from "./asaas";
+import { signToken } from "./tokens";
+import { appUrl } from "./appUrl";
 import type { Route } from "@prisma/client";
+
+// Covers the whole lifecycle of a route, payment window included.
+const CLIENT_TRACKING_SECONDS = 60 * 60 * 24 * 30;
 
 export interface CreateRouteInput {
   clientId: string;
@@ -13,7 +18,10 @@ export interface CreateRouteInput {
   volumeM3: number;
 }
 
-export async function createRouteWithCharge(input: CreateRouteInput): Promise<Route> {
+export type CreatedRoute = Route & { clienteTrackingUrl: string };
+
+export async function createRouteWithCharge(input: CreateRouteInput): Promise<CreatedRoute> {
+  const base = appUrl(); // fail before creating a route/charge we can't link to
   const valorTotal = input.distanciaKm * input.valorKm;
 
   const route = await prisma.route.create({
@@ -46,5 +54,13 @@ export async function createRouteWithCharge(input: CreateRouteInput): Promise<Ro
     },
   });
 
-  return route;
+  // The team forwards this link to the client by hand for now.
+  const clienteToken = signToken({
+    routeId: route.id,
+    subjectId: input.clientId,
+    kind: "client",
+    exp: Math.floor(Date.now() / 1000) + CLIENT_TRACKING_SECONDS,
+  });
+
+  return { ...route, clienteTrackingUrl: `${base}/cliente/${clienteToken}` };
 }

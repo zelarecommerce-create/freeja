@@ -38,7 +38,8 @@ export default function PainelPage() {
         volumeM3: parseFloat(form.volumeM3),
       }),
     });
-    setMessage(res.ok ? "Rota criada!" : (await res.json()).error);
+    const data = await res.json();
+    setMessage(res.ok ? `Rota criada! Link de acompanhamento do cliente: ${data.clienteTrackingUrl}` : data.error);
   }
 
   if (!logado) {

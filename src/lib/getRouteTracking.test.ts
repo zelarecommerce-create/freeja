@@ -24,7 +24,7 @@ describe("getRouteTracking", () => {
         status: "ASSUMIDA",
       },
     });
-    await prisma.routeEvent.create({
+    const assumida = await prisma.routeEvent.create({
       data: { routeId: route.id, tipo: "assumida", payload: { driverId: "d1" } },
     });
     await prisma.routeEvent.create({
@@ -35,7 +35,9 @@ describe("getRouteTracking", () => {
 
     expect(tracking.status).toBe("ASSUMIDA");
     expect(tracking.ultimaLocalizacao).toBe("Registro");
-    expect(tracking.etaEstimado).not.toBeNull();
+    // ETA is anchored to the moment the route was assumed (60km / 60km/h = 1h),
+    // not recomputed from "now" on every request — otherwise it never converges.
+    expect(tracking.etaEstimado).toBe(new Date(assumida.createdAt.getTime() + 60 * 60_000).toISOString());
     expect(tracking.eventos).toHaveLength(2);
   });
 });
