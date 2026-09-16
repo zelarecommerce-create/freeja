@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoVeiculo {
+  MOTO
+  CARRO
+  FIORINO
+  VAN
+  CAMINHAO_VUC
+  CAMINHAO_3_4
+  TRUCK
+}
+
+enum DriverStatus {
+  ATIVO
+  INATIVO
+}
+
+enum RouteStatus {
+  AGUARDANDO_PAGAMENTO
+  DISPONIVEL
+  ASSUMIDA
+  EM_TRANSPORTE
+  CONCLUIDA
+  CANCELADA
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  nome      String
+  telefone  String
+  email     String
+  createdAt DateTime @default(now())
+  routes    Route[]
+}
+
+model Driver {
+  id           String       @id @default(cuid())
+  nome         String
+  cpf          String       @unique
+  telefone     String
+  chavePix     String
+  rntrc        String
+  cidadeBase   String
+  tipoVeiculo  TipoVeiculo
+  capacidadeKg Float
+  capacidadeM3 Float
+  status       DriverStatus @default(ATIVO)
+  createdAt    DateTime     @default(now())
+  routes       Route[]
+}
+
+model Route {
+  id          String      @id @default(cuid())
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id])
+  driverId    String?
+  driver      Driver?     @relation(fields: [driverId], references: [id])
+  origem      String
+  destino     String
+  distanciaKm Float
+  valorKm     Float
+  valorTotal  Float
+  pesoKg      Float
+  volumeM3    Float
+  status      RouteStatus @default(AGUARDANDO_PAGAMENTO)
+  createdAt   DateTime    @default(now())
+  events      RouteEvent[]
+  payment     Payment?
+  payout      Payout?
+}
+
+model RouteEvent {
+  id        String   @id @default(cuid())
+  routeId   String
+  route     Route    @relation(fields: [routeId], references: [id])
+  tipo      String
+  payload   Json?
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  routeId        String   @unique
+  route          Route    @relation(fields: [routeId], references: [id])
+  asaasChargeId  String
+  valorRecebido  Float
+  status         String
+  createdAt      DateTime @default(now())
+}
+
+model Payout {
+  id              String   @id @default(cuid())
+  routeId         String   @unique
+  route           Route    @relation(fields: [routeId], references: [id])
+  driverId        String
+  asaasTransferId String?
+  valorRepasse    Float
+  status          String   @default("pendente")
+  createdAt       DateTime @default(now())
+}
