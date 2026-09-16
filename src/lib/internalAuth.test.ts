@@ -24,6 +24,18 @@ describe("requireInternalAuth", () => {
     expect(result).not.toBeNull();
   });
 
+  it("rejects a driver's own link token even though its signature is valid", () => {
+    const token = signToken({ routeId: "route-1", subjectId: "driver-1", kind: "driver", exp: Math.floor(Date.now() / 1000) + 3600 });
+    const result = requireInternalAuth(requestWithCookie(token));
+    expect(result).not.toBeNull();
+  });
+
+  it("rejects a client tracking token for a real route", () => {
+    const token = signToken({ routeId: "route-1", subjectId: "client-1", kind: "client", exp: Math.floor(Date.now() / 1000) + 3600 });
+    const result = requireInternalAuth(requestWithCookie(token));
+    expect(result).not.toBeNull();
+  });
+
   it("accepts a request with a valid internal session token", () => {
     const token = signToken({ routeId: "internal", subjectId: "equipe", kind: "client", exp: Math.floor(Date.now() / 1000) + 3600 });
     const result = requireInternalAuth(requestWithCookie(token));
