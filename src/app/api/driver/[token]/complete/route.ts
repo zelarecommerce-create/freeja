@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/tokens";
-import { completeRoute } from "@/lib/completeRoute";
+import { completeRoute, RouteNotCompletableError } from "@/lib/completeRoute";
 
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
   const payload = verifyToken(params.token);
@@ -12,7 +12,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   try {
     await completeRoute(payload.routeId, payload.subjectId, body.comprovanteBase64 ?? "");
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
+    const status = err instanceof RouteNotCompletableError ? 409 : 400;
+    return NextResponse.json({ error: (err as Error).message }, { status });
   }
 
   return NextResponse.json({ ok: true });
