@@ -27,11 +27,12 @@ describe("handlePaymentConfirmed", () => {
         status: "AGUARDANDO_PAGAMENTO",
       },
     });
+    const asaasChargeId = `chg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await prisma.payment.create({
-      data: { routeId: route.id, asaasChargeId: "chg_1", valorRecebido: 0, status: "PENDING" },
+      data: { routeId: route.id, asaasChargeId, valorRecebido: 0, status: "PENDING" },
     });
 
-    await handlePaymentConfirmed("chg_1", 240);
+    await handlePaymentConfirmed(asaasChargeId, 240);
 
     const updatedRoute = await prisma.route.findUnique({ where: { id: route.id } });
     expect(updatedRoute?.status).toBe("DISPONIVEL");
