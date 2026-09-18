@@ -39,7 +39,7 @@ export async function registerDriver(input: RegisterDriverInput): Promise<Driver
   if (!Object.keys(CAPACIDADE_PADRAO).includes(input.tipoVeiculo)) throw new ValidationError("Tipo de veículo inválido");
 
   // WhatsApp Cloud API needs the country code; notifyEligibleDrivers sends this as-is.
-  if (!telefone.startsWith("55") && telefone.length <= 11) telefone = `55${telefone}`;
+  if (telefone.length <= 11) telefone = `55${telefone}`;
 
   const tipoVeiculo = input.tipoVeiculo as TipoVeiculo;
   const padrao = CAPACIDADE_PADRAO[tipoVeiculo];

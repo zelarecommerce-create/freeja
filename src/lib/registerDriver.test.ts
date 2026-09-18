@@ -52,6 +52,11 @@ describe("registerDriver", () => {
     expect(d.telefone).toBe("5511999991234");
   });
 
+  it("adds the country code to a DDD 55 number", async () => {
+    const d = await registerDriver({ ...base(), telefone: "(55) 99999-1234" });
+    expect(d.telefone).toBe("5555999991234");
+  });
+
   it("rejects an unknown vehicle type", async () => {
     await expect(registerDriver({ ...base(), tipoVeiculo: "BICICLETA" })).rejects.toBeInstanceOf(ValidationError);
   });

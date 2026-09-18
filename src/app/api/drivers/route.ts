@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "corpo da requisição inválido" }, { status: 400 });
   }
 
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return NextResponse.json({ error: "corpo da requisição inválido" }, { status: 400 });
+  }
+
   try {
     const driver = await registerDriver(body);
     return NextResponse.json(driver, { status: 201 });

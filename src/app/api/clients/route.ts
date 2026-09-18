@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "corpo da requisição inválido" }, { status: 400 });
   }
 
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return NextResponse.json({ error: "corpo da requisição inválido" }, { status: 400 });
+  }
+
   try {
     const client = await registerClient(body);
     return NextResponse.json(client, { status: 201 });
@@ -30,6 +34,7 @@ export async function POST(req: NextRequest) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
+    console.error(err);
     return NextResponse.json({ error: "Falha ao cadastrar cliente no Asaas" }, { status: 502 });
   }
 }
