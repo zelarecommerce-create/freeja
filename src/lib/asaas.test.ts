@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { createCharge, createTransfer } from "./asaas";
+import { createCharge, createCustomer, createTransfer } from "./asaas";
 
 const originalFetch = global.fetch;
 
@@ -50,5 +50,25 @@ describe("asaas", () => {
     const transfer = await createTransfer({ chavePix: "11999999999", valor: 240, descricao: "Repasse rota" });
 
     expect(transfer.id).toBe("trf_123");
+  });
+
+  it("creates a customer", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "cus_123" }),
+    }) as unknown as typeof fetch;
+
+    const customer = await createCustomer({ nome: "Loja", cpfCnpj: "12345678901", email: "a@b.co", telefone: "11999999999" });
+
+    expect(customer.id).toBe("cus_123");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://sandbox.asaas.com/api/v3/customers",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("throws when the customer request fails", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 400 }) as unknown as typeof fetch;
+    await expect(createCustomer({ nome: "Loja", cpfCnpj: "12345678901" })).rejects.toThrow("Asaas createCustomer failed: 400");
   });
 });

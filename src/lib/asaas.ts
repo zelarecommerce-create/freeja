@@ -61,3 +61,29 @@ export async function createTransfer(input: CreateTransferInput): Promise<AsaasT
   if (!response.ok) throw new Error(`Asaas createTransfer failed: ${response.status}`);
   return response.json();
 }
+
+export interface CreateCustomerInput {
+  nome: string;
+  cpfCnpj: string;
+  email?: string;
+  telefone?: string;
+}
+
+export interface AsaasCustomer {
+  id: string;
+}
+
+export async function createCustomer(input: CreateCustomerInput): Promise<AsaasCustomer> {
+  const response = await fetch(`${getBaseUrl()}/customers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", access_token: getApiKey() },
+    body: JSON.stringify({
+      name: input.nome,
+      cpfCnpj: input.cpfCnpj,
+      email: input.email,
+      mobilePhone: input.telefone,
+    }),
+  });
+  if (!response.ok) throw new Error(`Asaas createCustomer failed: ${response.status}`);
+  return response.json();
+}

@@ -9,7 +9,6 @@ const CLIENT_TRACKING_SECONDS = 60 * 60 * 24 * 30;
 
 export interface CreateRouteInput {
   clientId: string;
-  clientAsaasId: string;
   origem: string;
   destino: string;
   distanciaKm: number;
@@ -18,9 +17,18 @@ export interface CreateRouteInput {
   volumeM3: number;
 }
 
+export class ClienteSemAsaasError extends Error {
+  constructor() {
+    super("Cliente não está cadastrado no Asaas");
+  }
+}
+
 export type CreatedRoute = Route & { clienteTrackingUrl: string };
 
 export async function createRouteWithCharge(input: CreateRouteInput): Promise<CreatedRoute> {
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: input.clientId } });
+  if (!client.asaasCustomerId) throw new ClienteSemAsaasError();
+
   const base = appUrl(); // fail before creating a route/charge we can't link to
   const valorTotal = input.distanciaKm * input.valorKm;
 
@@ -39,7 +47,7 @@ export async function createRouteWithCharge(input: CreateRouteInput): Promise<Cr
   });
 
   const charge = await createCharge({
-    customerAsaasId: input.clientAsaasId,
+    customerAsaasId: client.asaasCustomerId,
     valor: valorTotal,
     descricao: `Frete ${input.origem} -> ${input.destino}`,
     externalReference: route.id,

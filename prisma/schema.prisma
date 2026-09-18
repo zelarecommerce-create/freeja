@@ -36,6 +36,8 @@ model Client {
   nome      String
   telefone  String
   email     String
+  cpfCnpj         String?
+  asaasCustomerId String?
   createdAt DateTime @default(now())
   routes    Route[]
 }
